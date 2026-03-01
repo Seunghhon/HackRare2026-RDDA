@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RareDx — Rare Disease Diagnostic Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --ink:    #05080f;
+  --ink2:   #090e18;
+  --ink3:   #0e1624;
+  --ink4:   #141f30;
+  --wire:   rgba(99,179,237,0.10);
+  --wire2:  rgba(99,179,237,0.20);
+  --wire3:  rgba(99,179,237,0.35);
+  --ice:    #63b3ed;
+  --ice-d:  rgba(99,179,237,0.08);
+  --ice-m:  rgba(99,179,237,0.15);
+  --teal:   #4fd1c5;
+  --lime:   #68d391;
+  --amber:  #f6ad55;
+  --rose:   #fc8181;
+  --violet: #b794f4;
+  --text:   #e2e8f0;
+  --text2:  #718096;
+  --text3:  #2d3748;
+  --mono:   'IBM Plex Mono', monospace;
+  --serif:  'Fraunces', serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background */
+.bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(99,179,237,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,179,237,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.bg-g1 { position:absolute; top:-300px; left:-300px; width:800px; height:800px; background:radial-gradient(circle,rgba(99,179,237,0.07) 0%,transparent 65%); }
+.bg-g2 { position:absolute; bottom:-200px; right:-200px; width:600px; height:600px; background:radial-gradient(circle,rgba(79,209,197,0.05) 0%,transparent 65%); }
+.bg-scan { position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px); }
+
+/* Header */
+header {
+  position:sticky; top:0; z-index:100;
+  height:60px; border-bottom:1px solid var(--wire);
+  background:rgba(5,8,15,0.88); backdrop-filter:blur(16px);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 32px;
+}
+.logo-group { display:flex; align-items:center; gap:14px; }
+.logo-mark {
+  width:32px; height:32px; border:1.5px solid var(--ice);
+  border-radius:6px; display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+}
+.logo-mark::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(99,179,237,0.2),transparent); }
+.logo-cross { width:14px; height:14px; position:relative; }
+.logo-cross::before,.logo-cross::after { content:''; position:absolute; background:var(--ice); border-radius:1px; }
+.logo-cross::before { width:2px; height:14px; left:50%; top:0; transform:translateX(-50%); }
+.logo-cross::after  { width:14px; height:2px; left:0; top:50%; transform:translateY(-50%); }
+.logo-text { font-size:16px; font-weight:600; color:var(--text); letter-spacing:-0.3px; }
+.logo-text span { color:var(--ice); }
+.header-right { display:flex; align-items:center; gap:16px; }
+.status-pill {
+  display:flex; align-items:center; gap:7px;
+  font-size:11px; color:var(--text2);
+  border:1px solid var(--wire2); border-radius:20px;
+  padding:4px 12px; background:rgba(99,179,237,0.04);
+}
+.status-dot {
+  width:6px; height:6px; border-radius:50%; background:var(--lime);
+  animation:breathe 2.5s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(104,211,145,0.4);}
+  50%{opacity:0.6;box-shadow:0 0 0 4px rgba(104,211,145,0);}
+}
+.warn-pill {
+  font-size:10px; color:var(--amber);
+  border:1px solid rgba(246,173,85,0.25); border-radius:4px;
+  padding:3px 8px; background:rgba(246,173,85,0.06);
+}
+
+/* Layout */
+.app {
+  position:relative; z-index:1;
+  display:grid; grid-template-columns:400px 1fr;
+  height:calc(100vh - 60px);
+}
+
+/* Sidebar */
+.sidebar {
+  border-right:1px solid var(--wire);
+  overflow-y:auto; background:rgba(9,14,24,0.7);
+  display:flex; flex-direction:column;
+}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--wire2);border-radius:2px;}
+
+.sidebar-section { padding:24px 24px 0; }
+.section-header { display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+.section-num { font-size:10px; color:var(--ice); opacity:0.6; width:16px; }
+.section-title { font-size:10px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; flex:1; }
+.section-title::after { content:''; display:block; height:1px; background:var(--wire); margin-top:6px; }
+
+/* Search */
+.search-container { position:relative; }
+.search-box {
+  width:100%; background:var(--ink3); border:1px solid var(--wire);
+  border-radius:8px; padding:11px 14px 11px 38px;
+  color:var(--text); font-family:var(--mono); font-size:13px;
+  outline:none; transition:border-color .2s,box-shadow .2s;
+}
+.search-box::placeholder{color:var(--text3);}
+.search-box:focus{border-color:var(--ice);box-shadow:0 0 0 3px var(--ice-d);}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px;pointer-events:none;}
+
+/* Dropdown */
+.dropdown {
+  position:absolute; top:calc(100% + 4px); left:0; right:0;
+  background:var(--ink2); border:1px solid var(--wire2);
+  border-radius:8px; overflow:hidden; overflow-y:auto;
+  max-height:240px; z-index:200;
+  box-shadow:0 12px 40px rgba(0,0,0,0.6);
+  display:none;
+}
+.dropdown::-webkit-scrollbar{width:3px;}
+.dropdown::-webkit-scrollbar-thumb{background:var(--wire2);border-radius:2px;}
+.dd-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--wire); transition:background .12s; display:flex; flex-direction:column; gap:2px; }
+.dd-item:last-child{border-bottom:none;}
+.dd-item:hover{background:var(--ice-d);}
+.dd-name{font-size:13px;color:var(--text);}
+.dd-id{font-size:10px;color:var(--text2);}
+
+/* Tags */
+.tags-area { min-height:44px; display:flex; flex-wrap:wrap; gap:6px; }
+.tag {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--ice-m); border:1px solid var(--wire2);
+  border-radius:20px; padding:4px 10px 4px 12px;
+  font-size:12px; color:var(--ice);
+  animation:popIn .18s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+.tag-x{cursor:pointer;color:var(--text2);font-size:12px;transition:color .12s;}
+.tag-x:hover{color:var(--rose);}
+.empty-tags{font-size:11px;color:var(--text3);}
+
+/* Chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip {
+  padding:5px 12px; border-radius:20px; border:1px solid var(--wire);
+  background:transparent; color:var(--text2); font-size:11px;
+  font-family:var(--mono); cursor:pointer; transition:all .15s; white-space:nowrap;
+}
+.chip:hover{border-color:var(--ice);color:var(--ice);background:var(--ice-d);}
+.chip.on{border-color:var(--ice);background:var(--ice-d);color:var(--ice);}
+
+/* Prior tests */
+.prior-wrap{display:flex;flex-direction:column;gap:6px;}
+.prior-chip {
+  display:flex; align-items:center; gap:8px;
+  padding:9px 12px; border-radius:7px;
+  border:1px solid var(--wire); background:var(--ink3);
+  cursor:pointer; transition:all .15s; font-size:11px; color:var(--text2);
+}
+.prior-chip:hover{border-color:var(--wire2);color:var(--text);}
+.prior-chip.on{border-color:var(--violet);color:var(--violet);background:rgba(183,148,244,0.07);}
+
+.divider{height:1px;background:var(--wire);margin:0 24px;}
+
+/* Legend */
+.legend-bar{display:flex;align-items:center;gap:18px;padding:0 24px 18px;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text2);}
+
+/* Run button */
+.run-btn-wrap{padding:20px 24px;margin-top:auto;}
+.run-btn {
+  width:100%; padding:13px 20px;
+  background:linear-gradient(135deg,#2b6cb0 0%,#2c7a7b 100%);
+  color:#fff; border:none; border-radius:8px;
+  font-family:var(--mono); font-size:13px; font-weight:500;
+  letter-spacing:.5px; cursor:pointer;
+  position:relative; overflow:hidden;
+  transition:transform .15s,box-shadow .2s;
+}
+.run-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.12),transparent 60%);pointer-events:none;}
+.run-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 24px rgba(43,108,176,.45);}
+.run-btn:active:not(:disabled){transform:none;}
+.run-btn:disabled{background:var(--ink4);color:var(--text3);cursor:not-allowed;box-shadow:none;}
+
+/* Main */
+.main{overflow-y:auto;background:rgba(5,8,15,0.4);display:flex;flex-direction:column;}
+.main::-webkit-scrollbar{width:4px;}
+.main::-webkit-scrollbar-thumb{background:var(--wire);border-radius:2px;}
+
+/* Empty */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;}
+.empty-hex{width:72px;height:72px;position:relative;}
+.hex-ring{position:absolute;inset:0;border:1px solid var(--wire);clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);animation:hexPulse 3s ease-in-out infinite;}
+.hex-ring:nth-child(2){inset:10px;animation-delay:.5s;border-color:var(--wire2);}
+@keyframes hexPulse{0%,100%{opacity:.3}50%{opacity:.8}}
+.empty-msg{font-size:12px;text-align:center;line-height:2;color:var(--text3);}
+
+/* Loading */
+.loading{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;}
+.loader-ring{width:48px;height:48px;border:1.5px solid var(--wire);border-top-color:var(--ice);border-radius:50%;animation:spin .75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{font-size:11px;color:var(--text2);letter-spacing:1px;}
+.loader-dots::after{content:'';animation:dots 1.2s steps(4,end) infinite;}
+@keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+
+/* ══ TABS ══ */
+.tabs-bar {
+  display:flex; align-items:center;
+  border-bottom:1px solid var(--wire);
+  padding:0 32px; background:rgba(9,14,24,0.5);
+  flex-shrink:0; position:sticky; top:0; z-index:10;
+}
+.tab-btn {
+  padding:14px 0; margin-right:28px;
+  font-size:10px; color:var(--text2);
+  background:none; border:none; cursor:pointer;
+  letter-spacing:2px; text-transform:uppercase;
+  border-bottom:2px solid transparent;
+  transition:color .15s,border-color .15s;
+  font-family:var(--mono);
+}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--ice);border-bottom-color:var(--ice);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+/* ══ FINDINGS TAB ══ */
+.results{padding:28px 32px;}
+.result-topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--wire);}
+.result-heading{font-family:var(--serif);font-size:26px;font-weight:300;color:var(--text);letter-spacing:-.3px;line-height:1.2;margin-bottom:6px;}
+.result-subtext{font-size:11px;color:var(--text2);line-height:1.8;}
+.result-subtext .hl{color:var(--ice);}
+.result-timestamp{font-size:10px;color:var(--text3);text-align:right;line-height:1.8;}
+
+.res-label{font-size:9px;color:var(--text3);letter-spacing:2.5px;text-transform:uppercase;display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.res-label::after{content:'';flex:1;height:1px;background:var(--wire);}
+
+.disease-list{display:flex;flex-direction:column;gap:10px;margin-bottom:32px;}
+.dcard{background:var(--ink2);border:1px solid var(--wire);border-radius:10px;overflow:hidden;transition:border-color .2s;animation:riseIn .35s ease both;}
+.dcard:hover{border-color:var(--wire2);}
+.dcard:nth-child(1){animation-delay:.04s}
+.dcard:nth-child(2){animation-delay:.08s}
+.dcard:nth-child(3){animation-delay:.12s}
+.dcard:nth-child(4){animation-delay:.16s}
+.dcard:nth-child(5){animation-delay:.20s}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+.dcard-head{padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;user-select:none;}
+.rank{width:32px;height:32px;flex-shrink:0;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;}
+.r1{background:rgba(99,179,237,.18);color:var(--ice);border:1px solid rgba(99,179,237,.35);}
+.r2{background:rgba(79,209,197,.14);color:var(--teal);border:1px solid rgba(79,209,197,.28);}
+.r3{background:rgba(104,211,145,.12);color:var(--lime);border:1px solid rgba(104,211,145,.25);}
+.rn{background:var(--ink4);color:var(--text2);border:1px solid var(--wire);}
+.dcard-info{flex:1;min-width:0;}
+.dcard-name{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+.dcard-code{font-size:10px;color:var(--text2);}
+.prob-block{display:flex;flex-direction:column;align-items:flex-end;gap:5px;min-width:120px;}
+.prob-num{font-size:18px;font-weight:600;color:var(--ice);letter-spacing:-.5px;}
+.prob-track{width:120px;height:3px;background:var(--ink4);border-radius:2px;overflow:hidden;}
+.prob-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--ice),var(--teal));transition:width .8s cubic-bezier(.22,1,.36,1);}
+.chevron{color:var(--text2);font-size:11px;transition:transform .25s,color .2s;flex-shrink:0;}
+.dcard.open .chevron{transform:rotate(180deg);color:var(--ice);}
+.dcard-body{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1);border-top:0 solid var(--wire);}
+.dcard.open .dcard-body{max-height:500px;border-top-width:1px;}
+.dcard-inner{padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.db-label{font-size:9px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+.gene-row{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;background:var(--ink3);border:1px solid var(--wire);border-radius:7px;margin-bottom:6px;}
+.gene-row:last-child{margin-bottom:0;}
+.gdot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+.gdot-red{background:var(--rose);box-shadow:0 0 6px rgba(252,129,129,.5);}
+.gdot-amb{background:var(--amber);}
+.gdot-gray{background:var(--text3);}
+.gsym{font-size:13px;font-weight:600;color:var(--text);}
+.glabel{font-size:11px;color:var(--text2);margin-top:1px;}
+.gfull{font-size:10px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.orpha-btn{display:inline-flex;align-items:center;gap:7px;color:var(--ice);font-size:11px;text-decoration:none;border:1px solid var(--wire2);border-radius:6px;padding:7px 12px;margin-top:4px;background:var(--ice-d);transition:background .15s;}
+.orpha-btn:hover{background:var(--ice-m);}
+
+.next-box{background:var(--ink2);border:1px solid var(--wire);border-radius:10px;overflow:hidden;animation:riseIn .4s .28s ease both;}
+.next-head{padding:16px 20px;border-bottom:1px solid var(--wire);display:flex;align-items:center;justify-content:space-between;}
+.next-title{font-size:13px;color:var(--text);font-weight:500;}
+.entropy-tag{font-size:10px;padding:3px 9px;border-radius:4px;background:rgba(246,173,85,.08);border:1px solid rgba(246,173,85,.2);color:var(--amber);}
+.next-items{padding:12px 16px;display:flex;flex-direction:column;gap:8px;}
+.nitem{display:flex;flex-direction:column;background:var(--ink3);border:1px solid var(--wire);border-radius:8px;transition:border-color .15s;animation:riseIn .3s ease both;cursor:pointer;overflow:hidden;}
+.nitem-top{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:12px 14px;}
+.nitem:nth-child(1){animation-delay:.33s}
+.nitem:nth-child(2){animation-delay:.38s}
+.nitem:nth-child(3){animation-delay:.43s}
+.nitem:nth-child(4){animation-delay:.48s}
+.nitem:nth-child(5){animation-delay:.53s}
+.nitem:hover{border-color:var(--wire2);}
+.nitem.open{border-color:var(--wire2);}
+.nitem-left{min-width:0;}
+.nitem-name{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+.nitem-meta{font-size:10px;color:var(--text3);display:flex;align-items:center;gap:8px;}
+.nitem-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;}
+.nitem-chevron{font-size:9px;color:var(--text3);transition:transform .2s;display:inline-block;margin-left:4px;}
+.nitem.open .nitem-chevron{transform:rotate(180deg);}
+.stars-row{font-size:11px;letter-spacing:2px;color:var(--amber);}
+.deltas{display:flex;gap:6px;align-items:center;}
+.d-pill{font-size:10px;padding:2px 7px;border-radius:4px;}
+.d-up{background:rgba(104,211,145,.12);color:var(--lime);}
+.d-down{background:rgba(252,129,129,.12);color:var(--rose);}
+.nitem-detail{display:none;border-top:1px solid var(--wire);padding:10px 14px;background:rgba(0,0,0,.18);}
+.nitem.open .nitem-detail{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.nd-col-title{font-size:9px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--wire);}
+.nd-row{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px;}
+.nd-row:last-child{margin-bottom:0;}
+.nd-name{flex:1;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nd-arrow{color:var(--text3);flex-shrink:0;font-size:9px;}
+.nd-from{color:var(--text3);font-family:var(--mono);flex-shrink:0;}
+.nd-to{font-family:var(--mono);flex-shrink:0;}
+.nd-badge{font-size:9px;padding:1px 5px;border-radius:3px;flex-shrink:0;font-family:var(--mono);font-weight:600;}
+.nb-up{background:rgba(104,211,145,.15);color:var(--lime);}
+.nb-down{background:rgba(252,129,129,.15);color:var(--rose);}
+.nd-empty{font-size:10px;color:var(--text3);font-style:italic;}.next-footer{padding:10px 20px 14px;font-size:10px;color:var(--text3);line-height:1.9;border-top:1px solid var(--wire);}
+.fade-sep{height:1px;background:var(--wire);margin:24px 0;opacity:0;animation:fadeOp .4s .1s ease both;}
+@keyframes fadeOp{to{opacity:1}}
+
+/* ══ JOURNEY TAB ══ */
+.journey { padding: 28px 36px 48px; }
+
+.journey-topbar {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 28px; padding-bottom: 20px;
+  border-bottom: 1px solid var(--wire);
+}
+.journey-heading {
+  font-family: var(--serif); font-size: 26px; font-weight: 300;
+  color: var(--text); letter-spacing: -.3px; line-height: 1.2; margin-bottom: 6px;
+}
+.journey-sub { font-size: 11px; color: var(--text2); line-height: 1.9; }
+.journey-sub em { color: var(--ice); font-style: normal; }
+
+/* Uncertainty meter */
+.unc-meter {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; background: var(--ink3);
+  border: 1px solid var(--wire); border-radius: 8px;
+  margin-bottom: 32px;
+  animation: riseIn .3s ease both;
+}
+.unc-label { font-size: 10px; color: var(--text2); white-space: nowrap; }
+.unc-track { flex: 1; height: 6px; background: var(--ink4); border-radius: 3px; overflow: hidden; }
+.unc-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--lime) 0%, var(--amber) 55%, var(--rose) 100%);
+  transition: width .9s cubic-bezier(.22,1,.36,1);
+}
+.unc-val { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.unc-sub { font-size: 10px; color: var(--text3); white-space: nowrap; }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 44px; }
+.timeline::before {
+  content: ''; position: absolute;
+  left: 15px; top: 20px; bottom: 20px;
+  width: 1px; background: var(--wire);
+}
+
+.jstep { position: relative; margin-bottom: 20px; animation: riseIn .35s ease both; }
+.jstep:nth-child(1){animation-delay:.06s}
+.jstep:nth-child(2){animation-delay:.13s}
+.jstep:nth-child(3){animation-delay:.20s}
+.jstep:nth-child(4){animation-delay:.27s}
+
+/* Node */
+.j-node {
+  position: absolute; left: -44px; top: 18px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600;
+  border: 1.5px solid; background: var(--ink);
+  z-index: 2; transition: all .25s;
+}
+.jn-active  { border-color: var(--ice);  background: rgba(99,179,237,.15); color: var(--ice);  box-shadow: 0 0 0 5px rgba(99,179,237,.08), 0 0 16px rgba(99,179,237,.2); }
+.jn-next    { border-color: var(--amber); background: rgba(246,173,85,.1); color: var(--amber); }
+.jn-done    { border-color: var(--lime);  background: rgba(104,211,145,.12); color: var(--lime); }
+.jn-pending { border-color: var(--text3); background: var(--ink3); color: var(--text3); opacity: .55; }
+
+/* Step card */
+.j-card {
+  background: var(--ink2); border: 1px solid var(--wire);
+  border-radius: 10px; overflow: hidden;
+  transition: border-color .2s;
+}
+.j-card:hover { border-color: var(--wire2); }
+.j-card.jc-active  { border-color: rgba(99,179,237,.28); }
+.j-card.jc-next    { border-color: rgba(246,173,85,.2); }
+.j-card.jc-done    { border-color: rgba(104,211,145,.18); opacity: .75; }
+.j-card.jc-pending { opacity: .4; }
+
+.j-card-head {
+  padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.j-card-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+
+/* Phase pill */
+.j-phase { font-size: 9px; letter-spacing: 1.8px; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; white-space: nowrap; }
+.ph-phenotype { background: rgba(99,179,237,.1);  color: var(--ice);    border: 1px solid rgba(99,179,237,.2); }
+.ph-test      { background: rgba(252,129,129,.1); color: var(--rose);   border: 1px solid rgba(252,129,129,.2); }
+.ph-reanalyze { background: rgba(183,148,244,.1); color: var(--violet); border: 1px solid rgba(183,148,244,.2); }
+.ph-refer     { background: rgba(104,211,145,.1); color: var(--lime);   border: 1px solid rgba(104,211,145,.2); }
+
+.j-step-title { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Status badge */
+.j-badge { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 9px; border-radius: 3px; flex-shrink: 0; }
+.jb-now     { background: rgba(99,179,237,.12);  color: var(--ice);    border: 1px solid rgba(99,179,237,.25); }
+.jb-next    { background: rgba(246,173,85,.08);  color: var(--amber);  border: 1px solid rgba(246,173,85,.2); }
+.jb-done    { background: rgba(104,211,145,.1);  color: var(--lime);   border: 1px solid rgba(104,211,145,.2); }
+.jb-pending { background: var(--ink3);           color: var(--text3);  border: 1px solid var(--wire); }
+
+/* Card body */
+.j-card-body { border-top: 1px solid var(--wire); padding: 16px 18px; }
+
+/* Gate condition */
+.j-gate {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 11px; color: var(--text2); line-height: 1.7;
+  background: var(--ink3); border: 1px solid var(--wire);
+  border-radius: 6px; padding: 9px 13px; margin-bottom: 14px;
+}
+.j-gate-ico { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.j-gate strong { color: var(--text); }
+
+/* Actions */
+.j-actions { display: flex; flex-direction: column; gap: 8px; }
+.j-action {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 13px; background: var(--ink3);
+  border: 1px solid var(--wire); border-radius: 8px;
+  transition: border-color .15s;
+}
+.j-action:hover { border-color: var(--wire2); }
+.j-action-ico { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+.ico-p { background: rgba(99,179,237,.1); }
+.ico-t { background: rgba(252,129,129,.1); }
+.ico-r { background: rgba(183,148,244,.1); }
+.ico-ref { background: rgba(104,211,145,.1); }
+.j-action-body { flex: 1; min-width: 0; }
+.j-action-title { font-size: 12px; color: var(--text); margin-bottom: 3px; }
+.j-action-desc  { font-size: 11px; color: var(--text2); line-height: 1.7; }
+.j-action-note  { font-size: 10px; color: var(--text3); margin-top: 4px; }
+
+/* Impact bar */
+.impact-row { display: flex; align-items: center; gap: 9px; margin-top: 6px; }
+.impact-lbl { font-size: 10px; color: var(--text3); white-space: nowrap; }
+.impact-track { flex: 1; height: 3px; background: var(--ink4); border-radius: 2px; overflow: hidden; }
+.impact-fill { height: 100%; border-radius: 2px; transition: width .8s ease; }
+.imp-high { background: linear-gradient(90deg, var(--ice), var(--teal)); }
+.imp-med  { background: var(--amber); }
+.imp-low  { background: var(--text3); }
+.impact-val { font-size: 10px; color: var(--text2); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="bg-grid"></div>
+  <div class="bg-g1"></div>
+  <div class="bg-g2"></div>
+  <div class="bg-scan"></div>
+</div>
+
+<header>
+  <div class="logo-group">
+    <div class="logo-mark"><div class="logo-cross"></div></div>
+    <span class="logo-text">Rare<span>Dx</span></span>
+    <span style="font-size:11px;color:var(--text3);padding-left:4px">/ Rare Disease Diagnostic Assistant</span>
+  </div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <span>Model v2.0 · HPO · 2,158 diseases</span>
+    </div>
+    <div class="warn-pill">⚠ Research only · Not for clinical use</div>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="section-header"><span class="section-num">01</span><div class="section-title">Symptom Input</div></div>
+      <div class="search-container">
+        <span class="search-icon">⌕</span>
+        <input class="search-box" id="sInput" placeholder="Search HPO symptom…  Seizure, Ataxia" autocomplete="off" spellcheck="false">
+        <div class="dropdown" id="dropdown"></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-header"><span class="section-num">02</span><div class="section-title">Selected Symptoms</div></div>
+      <div class="tags-area" id="tagsArea"><span class="empty-tags">Search and click to add symptoms</span></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sidebar-section">
+      <div class="section-header"><span class="section-num">03</span><div class="section-title">Age of Onset <span style="color:var(--text3);font-size:9px;letter-spacing:0;text-transform:none">optional</span></div></div>
+      <div class="chips" id="ageChips">
+        <div class="chip" data-k="onset_Antenatal">Antenatal</div>
+        <div class="chip" data-k="onset_Neonatal">Neonatal</div>
+        <div class="chip" data-k="onset_Infancy">Infancy</div>
+        <div class="chip" data-k="onset_Childhood">Childhood</div>
+        <div class="chip" data-k="onset_Adolescent">Adolescent</div>
+        <div class="chip" data-k="onset_Adult">Adult</div>
+        <div class="chip" data-k="onset_Elderly">Elderly</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-header"><span class="section-num">04</span><div class="section-title">Inheritance <span style="color:var(--text3);font-size:9px;letter-spacing:0;text-transform:none">optional</span></div></div>
+      <div class="chips" id="inhChips">
+        <div class="chip" data-k="inh_AR">Autosomal recessive</div>
+        <div class="chip" data-k="inh_AD">Autosomal dominant</div>
+        <div class="chip" data-k="inh_XLR">X-linked recessive</div>
+        <div class="chip" data-k="inh_XLD">X-linked dominant</div>
+        <div class="chip" data-k="inh_Mito">Mitochondrial</div>
+        <div class="chip" data-k="inh_Multi">Multigenic</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-header"><span class="section-num">05</span><div class="section-title">Prior Tests <span style="color:var(--text3);font-size:9px;letter-spacing:0;text-transform:none">optional</span></div></div>
+      <div class="prior-wrap" id="priorWrap">
+        <div class="prior-chip" data-k="prior_panel" onclick="togglePrior(this)">🧬 &nbsp;Gene panel — negative</div>
+        <div class="prior-chip" data-k="prior_wes"   onclick="togglePrior(this)">🔬 &nbsp;WES / WGS — negative</div>
+        <div class="prior-chip" data-k="prior_meta"  onclick="togglePrior(this)">🧪 &nbsp;Metabolic screen — negative</div>
+        <div class="prior-chip" data-k="prior_mri"   onclick="togglePrior(this)">🖼 &nbsp;Brain MRI — abnormal</div>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div class="legend-bar">
+      <div class="leg"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--rose);box-shadow:0 0 6px rgba(252,129,129,.5)"></span>Confirmatory</div>
+      <div class="leg"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber)"></span>Susceptibility</div>
+      <div class="leg"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text3)"></span>Reference</div>
+    </div>
+
+    <div class="run-btn-wrap">
+      <button class="run-btn" id="runBtn" disabled onclick="runDiagnose()">Run Diagnosis →</button>
+    </div>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="mainArea">
+    <div class="empty" id="emptyState">
+      <div class="empty-hex"><div class="hex-ring"></div><div class="hex-ring"></div></div>
+      <div class="empty-msg">Enter symptoms on the left<br>and run the diagnosis</div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────
+let selSyms = [], selAge = null, selInh = null, priorKeys = new Set();
+
+// ── Autocomplete ───────────────────────────────────────────────────────
+const inp = document.getElementById('sInput');
+const dd  = document.getElementById('dropdown');
+let acTimer = null;
+
+inp.addEventListener('input', () => {
+  const q = inp.value.trim();
+  clearTimeout(acTimer);
+  if (q.length < 2) { dd.style.display = 'none'; return; }
+  acTimer = setTimeout(async () => {
+    try {
+      const res  = await fetch(`/api/symptoms?q=${encodeURIComponent(q)}&limit=10`);
+      const hits = await res.json();
+      const fil  = hits.filter(s => !selSyms.find(x => x.id === s.id));
+      if (!fil.length) { dd.style.display = 'none'; return; }
+      dd.innerHTML = fil.map(s => `
+        <div class="dd-item" onmousedown="addSym('${s.id}','${s.n.replace(/'/g,"\\'")}')">
+          <span class="dd-name">${mark(s.n, q)}</span>
+          <span class="dd-id">${s.id}</span>
+        </div>`).join('');
+      dd.style.display = 'block';
+    } catch { dd.style.display = 'none'; }
+  }, 180);
+});
+
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('.search-container')) dd.style.display = 'none';
+});
+
+function mark(t, q) {
+  return t.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'gi'),
+    '<span style="color:var(--ice)">$1</span>');
+}
+function addSym(id, n) {
+  if (selSyms.find(s => s.id === id)) return;
+  selSyms.push({id, n}); inp.value = ''; dd.style.display = 'none';
+  renderTags(); updateBtn();
+}
+function removeSym(id) {
+  selSyms = selSyms.filter(s => s.id !== id); renderTags(); updateBtn();
+}
+function renderTags() {
+  const a = document.getElementById('tagsArea');
+  if (!selSyms.length) { a.innerHTML = '<span class="empty-tags">Search and click to add symptoms</span>'; return; }
+  a.innerHTML = selSyms.map(s => `
+    <div class="tag"><span>${s.n}</span><span class="tag-x" onclick="removeSym('${s.id}')">✕</span></div>`).join('');
+}
+
+// ── Chips ──────────────────────────────────────────────────────────────
+document.querySelectorAll('#ageChips .chip').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('#ageChips .chip').forEach(x => x.classList.remove('on'));
+  selAge = (selAge === c.dataset.k) ? null : (c.classList.add('on'), c.dataset.k);
+}));
+document.querySelectorAll('#inhChips .chip').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('#inhChips .chip').forEach(x => x.classList.remove('on'));
+  selInh = (selInh === c.dataset.k) ? null : (c.classList.add('on'), c.dataset.k);
+}));
+function togglePrior(el) {
+  el.classList.toggle('on');
+  const k = el.dataset.k;
+  priorKeys.has(k) ? priorKeys.delete(k) : priorKeys.add(k);
+}
+function updateBtn() {
+  document.getElementById('runBtn').disabled = !selSyms.length;
+}
+
+// ── Run ────────────────────────────────────────────────────────────────
+async function runDiagnose() {
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `<div class="loading"><div class="loader-ring"></div><div class="loader-text">INFERRING<span class="loader-dots"></span></div></div>`;
+  try {
+    const res = await fetch('/api/diagnose', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        symptom_ids: selSyms.map(s => s.id),
+        onset_key:   selAge  || null,
+        inh_key:     selInh  || null,
+        prior_tests: [...priorKeys],
+        top_n: 5,
+      }),
+    });
+    if (!res.ok) { const e = await res.json(); showErr(e.error || res.statusText); return; }
+    const data = await res.json();
+    renderAll(data);
+  } catch {
+    showErr('Cannot reach server. Make sure app.py is running.');
+  }
+}
+function showErr(msg) {
+  document.getElementById('mainArea').innerHTML = `<div class="empty"><div class="empty-msg">${msg}</div></div>`;
+}
+
+// ── Tab switch ─────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// ── Render both tabs ───────────────────────────────────────────────────
+function renderAll(data) {
+  const main = document.getElementById('mainArea');
+  main.innerHTML = `
+    <div class="tabs-bar">
+      <button class="tab-btn active" onclick="switchTab('findings',this)">Findings</button>
+      <button class="tab-btn" onclick="switchTab('journey',this)">Diagnostic Journey</button>
+    </div>
+    <div id="tab-findings" class="tab-pane active">${buildFindings(data)}</div>
+    <div id="tab-journey"  class="tab-pane">${buildJourney(data)}</div>
+  `;
+  setTimeout(() => toggle(0), 420);
+}
+
+// ══ FINDINGS ══════════════════════════════════════════════════════════
+function buildFindings(data) {
+  const maxP = data.diseases[0].prob;
+  const now  = new Date();
+  const ts   = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const symsStr = selSyms.map(s => `<span class="hl">${s.n}</span>`).join(', ');
+
+  const dHtml = data.diseases.map((d, i) => {
+    const rc   = ['r1','r2','r3','rn','rn'][i] || 'rn';
+    const code = d.code.replace('ORPHA:','');
+    const barW = Math.round(d.prob / maxP * 100);
+    const gHtml = (d.genes || []).slice(0,4).map(g => `
+      <div class="gene-row">
+        <div class="gdot ${g.p===1?'gdot-red':g.p===2?'gdot-amb':'gdot-gray'}"></div>
+        <div><div class="gsym">${g.s}</div><div class="glabel">${g.l}</div><div class="gfull" title="${g.f}">${g.f}</div></div>
+      </div>`).join('') || '<div style="font-size:11px;color:var(--text3)">No gene data available</div>';
+    return `
+      <div class="dcard" id="dc${i}">
+        <div class="dcard-head" onclick="toggle(${i})">
+          <div class="rank ${rc}">${d.r}</div>
+          <div class="dcard-info">
+            <div class="dcard-name" title="${d.name}">${d.name}</div>
+            <div class="dcard-code">${d.code}</div>
+          </div>
+          <div class="prob-block">
+            <div class="prob-num">${d.prob < 0.01 ? d.prob.toFixed(4) : d.prob < 1 ? d.prob.toFixed(3) : d.prob.toFixed(2)}%</div>
+            <div class="prob-track"><div class="prob-fill" style="width:${barW}%"></div></div>
+          </div>
+          <div class="chevron">▾</div>
+        </div>
+        <div class="dcard-body">
+          <div class="dcard-inner">
+            <div><div class="db-label">Recommended Genetic Tests</div>${gHtml}</div>
+            <div>
+              <div class="db-label">Orphanet</div>
+              <a class="orpha-btn" href="https://www.orpha.net/en/disease/detail/${code}" target="_blank">↗ Orphanet Detail Page</a>
+              <div style="margin-top:10px;font-size:10px;color:var(--text3);line-height:1.9">Code&nbsp;&nbsp;${d.code}<br>Rank&nbsp;&nbsp;${d.r} / ${data.diseases.length}</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const nHtml = (data.next || []).map((s, i) => {
+    const dY    = (s.yes - s.now).toFixed(3);
+    const dN    = (s.no  - s.now).toFixed(3);
+    const stars = '★'.repeat(s.stars) + '☆'.repeat(5 - s.stars);
+
+    const makeCol = (list, type) => {
+      const titleTxt = type === 'yes' ? '📈 If Present' : '📉 If Absent';
+      if (!list || !list.length) return `<div><div class="nd-col-title">${titleTxt}</div><div class="nd-empty">No notable change</div></div>`;
+      const rows = list.map(d => {
+        const sign  = d.delta >= 0 ? '+' : '';
+        const cls   = d.delta >= 0 ? 'nb-up' : 'nb-down';
+        const toCol = d.delta >= 0 ? 'var(--lime)' : 'var(--rose)';
+        return `<div class="nd-row">
+          <span class="nd-name" title="${d.name}">${d.name}</span>
+          <span class="nd-from">${d.now.toFixed(1)}%</span>
+          <span class="nd-arrow">→</span>
+          <span class="nd-to" style="color:${toCol}">${d.after.toFixed(1)}%</span>
+          <span class="nd-badge ${cls}">${sign}${d.delta.toFixed(1)}</span>
+        </div>`;
+      }).join('');
+      return `<div><div class="nd-col-title">${titleTxt}</div>${rows}</div>`;
+    };
+
+    return `
+      <div class="nitem" id="ni2-${i}" onclick="toggleNitem2(${i})">
+        <div class="nitem-top">
+          <div class="nitem-left">
+            <div class="nitem-name">${s.n}<span class="nitem-chevron">▾</span></div>
+            <div class="nitem-meta"><span>${s.id}</span><span>·</span><span>IG ${s.ig.toFixed(4)}</span></div>
+          </div>
+          <div class="nitem-right">
+            <div class="stars-row">${stars}</div>
+            <div class="deltas">
+              <span class="d-pill d-up">Present ${dY>=0?'+':''}${dY}%p</span>
+              <span class="d-pill d-down">Absent ${dN>=0?'+':''}${dN}%p</span>
+            </div>
+          </div>
+        </div>
+        <div class="nitem-detail">
+          ${makeCol(s.yes_top, 'yes')}
+          ${makeCol(s.no_top,  'no')}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `<div class="results">
+    <div class="result-topbar">
+      <div>
+        <div class="result-heading">Diagnosis Results</div>
+        <div class="result-subtext">Input symptoms: ${symsStr}</div>
+      </div>
+      <div class="result-timestamp">${ts}<br>Model v2.0 · SGD Logistic</div>
+    </div>
+    <div class="res-label">Candidate Diseases · Top ${data.diseases.length}</div>
+    <div class="disease-list">${dHtml}</div>
+    <div class="fade-sep"></div>
+    <div class="res-label">Symptoms to Ask Next · By Information Gain</div>
+    <div class="next-box">
+      <div class="next-head">
+        <span class="next-title">📋 Next Symptoms to Confirm</span>
+        <span class="entropy-tag">Uncertainty ${data.entropy.toFixed(2)}</span>
+      </div>
+      <div class="next-items">${nHtml}</div>
+      <div class="next-footer">More ★ = confirming this symptom narrows the diagnosis significantly.<br>For reference only. Always consult a specialist.</div>
+    </div>
+  </div>`;
+}
+
+// ══ JOURNEY ═══════════════════════════════════════════════════════════
+function buildJourney(data) {
+  const top1    = data.diseases[0];
+  const top1p   = top1.prob;
+  const entropy = data.entropy;
+
+  // Map entropy → uncertainty %
+  // log2(2158) ≈ 11.07
+  const maxH   = Math.log2(2158);
+  const uncPct = Math.min(100, Math.round(entropy / maxH * 100));
+
+  // Derive step statuses from probability + prior tests
+  const hasPanel = priorKeys.has('prior_panel');
+  const hasWES   = priorKeys.has('prior_wes');
+
+  // Step 1: Phenotype refinement — always active unless uncertainty < 15%
+  const s1 = uncPct > 15 ? 'active' : 'done';
+  // Step 2: Targeted gene test — active once top1 > 15%, next if 10-15%, pending otherwise
+  const s2 = hasPanel ? 'done' : top1p > 15 ? (uncPct < 65 ? 'active' : 'next') : top1p > 10 ? 'next' : 'pending';
+  // Step 3: WES/Reanalysis — active if panel negative, next if s2 done
+  const s3 = hasWES ? 'done' : hasPanel ? 'active' : s2 === 'done' ? 'next' : 'pending';
+  // Step 4: Specialist referral — active if WES done or top1 > 30%
+  const s4 = hasWES || top1p > 30 ? (hasWES ? 'active' : 'next') : 'pending';
+
+  const nodeClass = s => `j-node jn-${s}`;
+  const cardClass = s => `j-card jc-${s}`;
+  const badge = s => {
+    const map = { active:'<span class="j-badge jb-now">Now</span>', next:'<span class="j-badge jb-next">Up next</span>', done:'<span class="j-badge jb-done">Complete</span>', pending:'<span class="j-badge jb-pending">Pending</span>' };
+    return map[s] || map.pending;
+  };
+
+  // Step 1 actions — top 3 info-gain symptoms
+  const symActions = (data.next || []).slice(0,3).map(s => {
+    const dY    = (s.yes - s.now).toFixed(1);
+    const impW  = Math.min(100, Math.round(s.ig * 200));
+    const impCls = s.stars >= 4 ? 'imp-high' : s.stars >= 2 ? 'imp-med' : 'imp-low';
+    return `
+      <div class="j-action">
+        <div class="j-action-ico ico-p">🔍</div>
+        <div class="j-action-body">
+          <div class="j-action-title">${s.n}</div>
+          <div class="j-action-desc">If present: #1 disease probability ${s.now.toFixed(1)}% → <strong style="color:var(--lime)">${s.yes.toFixed(1)}%</strong></div>
+          <div class="impact-row">
+            <span class="impact-lbl">Info gain</span>
+            <div class="impact-track"><div class="impact-fill ${impCls}" style="width:${impW}%"></div></div>
+            <span class="impact-val">${'★'.repeat(s.stars)} · +${dY}%p if present</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('') || '<div style="font-size:11px;color:var(--text3)">No additional symptom recommendations.</div>';
+
+  // Step 2 actions — top genes of #1 disease
+  const geneActions = (top1.genes || []).slice(0,3).map(g => {
+    const impCls = g.p === 1 ? 'imp-high' : g.p === 2 ? 'imp-med' : 'imp-low';
+    const conf   = g.p === 1 ? 'Confirmatory' : g.p === 2 ? 'Susceptibility' : 'Reference';
+    const pct    = g.p === 1 ? 85 : g.p === 2 ? 55 : 30;
+    return `
+      <div class="j-action">
+        <div class="j-action-ico ico-t">🧬</div>
+        <div class="j-action-body">
+          <div class="j-action-title">${g.s} — ${g.l}</div>
+          <div class="j-action-desc">${g.f}</div>
+          <div class="impact-row">
+            <span class="impact-lbl">Confidence</span>
+            <div class="impact-track"><div class="impact-fill ${impCls}" style="width:${pct}%"></div></div>
+            <span class="impact-val">${conf}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('') || '<div style="font-size:11px;color:var(--text3)">No gene data for top disease.</div>';
+
+  const code = top1.code.replace('ORPHA:','');
+
+  return `<div class="journey">
+    <div class="journey-topbar">
+      <div>
+        <div class="journey-heading">Diagnostic Journey</div>
+        <div class="journey-sub">
+          Next best actions toward confirming <em>${top1.name}</em> (${top1.code})<br>
+          Each step shows the trigger condition, what to do, and the expected impact.
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);text-align:right;line-height:1.9">
+        Top disease ${top1p.toFixed(1)}%<br>Entropy ${entropy.toFixed(2)}
+      </div>
+    </div>
+
+    <!-- Uncertainty meter -->
+    <div class="unc-meter">
+      <span class="unc-label">Diagnostic uncertainty</span>
+      <div class="unc-track"><div class="unc-fill" style="width:${uncPct}%"></div></div>
+      <span class="unc-val">${uncPct}%</span>
+      <span class="unc-sub">· ${uncPct > 70 ? 'High — more data needed' : uncPct > 40 ? 'Moderate — refine phenotype' : 'Low — proceed to testing'}</span>
+    </div>
+
+    <div class="timeline">
+
+      <!-- Step 1 -->
+      <div class="jstep">
+        <div class="${nodeClass(s1)}">1</div>
+        <div class="${cardClass(s1)}">
+          <div class="j-card-head">
+            <div class="j-card-left">
+              <span class="j-phase ph-phenotype">Phenotyping</span>
+              <span class="j-step-title">Refine symptom picture</span>
+            </div>
+            ${badge(s1)}
+          </div>
+          <div class="j-card-body">
+            <div class="j-gate">
+              <span class="j-gate-ico">⚡</span>
+              <div>Trigger when <strong>uncertainty > 20%</strong> or fewer than 3 symptoms confirmed. Currently: <strong>${uncPct}% uncertainty</strong>, <strong>${selSyms.length} symptom${selSyms.length!==1?'s':''}</strong> entered.</div>
+            </div>
+            <div class="j-actions">${symActions}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="jstep">
+        <div class="${nodeClass(s2)}">2</div>
+        <div class="${cardClass(s2)}">
+          <div class="j-card-head">
+            <div class="j-card-left">
+              <span class="j-phase ph-test">Genetic Test</span>
+              <span class="j-step-title">Order targeted gene panel</span>
+            </div>
+            ${badge(s2)}
+          </div>
+          <div class="j-card-body">
+            <div class="j-gate">
+              <span class="j-gate-ico">🎯</span>
+              <div>Trigger when <strong>top disease probability > 15%</strong> and phenotype confirmed. Currently: <strong>${top1p.toFixed(1)}%</strong> for ${top1.name}.</div>
+            </div>
+            <div class="j-actions">${geneActions}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="jstep">
+        <div class="${nodeClass(s3)}">3</div>
+        <div class="${cardClass(s3)}">
+          <div class="j-card-head">
+            <div class="j-card-left">
+              <span class="j-phase ph-reanalyze">Reanalysis</span>
+              <span class="j-step-title">WES / WGS or reanalysis of prior data</span>
+            </div>
+            ${badge(s3)}
+          </div>
+          <div class="j-card-body">
+            <div class="j-gate">
+              <span class="j-gate-ico">🔄</span>
+              <div>Trigger when <strong>targeted panel is negative</strong> but clinical suspicion remains. ${hasPanel ? '<strong style="color:var(--amber)">Prior panel recorded as negative.</strong>' : 'No prior panel recorded.'}</div>
+            </div>
+            <div class="j-actions">
+              <div class="j-action">
+                <div class="j-action-ico ico-r">🔬</div>
+                <div class="j-action-body">
+                  <div class="j-action-title">Whole Exome / Genome Sequencing</div>
+                  <div class="j-action-desc">Broad variant discovery when targeted panel yields no pathogenic variant. Consider trio sequencing if family history suggests recessive inheritance.</div>
+                  <div class="j-action-note">${hasPanel ? '⚠ Panel negative — escalation to WES indicated.' : 'Order after targeted panel if negative.'}</div>
+                </div>
+              </div>
+              <div class="j-action">
+                <div class="j-action-ico ico-r">♻️</div>
+                <div class="j-action-body">
+                  <div class="j-action-title">Reanalyze existing sequencing data</div>
+                  <div class="j-action-desc">Updated variant databases (ClinVar, gnomAD) may reclassify VUS variants from prior sequencing. Reanalysis costs significantly less than new sequencing.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="jstep">
+        <div class="${nodeClass(s4)}">4</div>
+        <div class="${cardClass(s4)}">
+          <div class="j-card-head">
+            <div class="j-card-left">
+              <span class="j-phase ph-refer">Referral</span>
+              <span class="j-step-title">Specialist clinic or ERN referral</span>
+            </div>
+            ${badge(s4)}
+          </div>
+          <div class="j-card-body">
+            <div class="j-gate">
+              <span class="j-gate-ico">🏥</span>
+              <div>Trigger when <strong>top disease > 25%</strong> or genetic confirmation obtained. Currently: <strong>${top1p.toFixed(1)}%</strong>.</div>
+            </div>
+            <div class="j-actions">
+              <div class="j-action">
+                <div class="j-action-ico ico-ref">🏥</div>
+                <div class="j-action-body">
+                  <div class="j-action-title">Refer to ERN Expert Center</div>
+                  <div class="j-action-desc">European Reference Network (ERN) centers and Orphanet-listed expert centers specialize in rare disease diagnosis and management.</div>
+                  <div class="j-action-note"><a href="https://www.orpha.net/en/disease/detail/${code}" target="_blank" style="color:var(--ice);text-decoration:none">↗ Find expert centers for ${top1.name} on Orphanet</a></div>
+                </div>
+              </div>
+              <div class="j-action">
+                <div class="j-action-ico ico-ref">📋</div>
+                <div class="j-action-body">
+                  <div class="j-action-title">Patient registry enrollment</div>
+                  <div class="j-action-desc">Register in the relevant rare disease patient registry to contribute to natural history data and gain access to clinical trials and compassionate use programs.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>`;
+}
+
+// ── Toggle disease card ────────────────────────────────────────────────
+function toggle(i) {
+  document.getElementById(`dc${i}`)?.classList.toggle('open');
+}
+
+function toggleNitem2(i) {
+  document.getElementById(`ni2-${i}`)?.classList.toggle('open');
+}
+</script>
+</body>
+</html>

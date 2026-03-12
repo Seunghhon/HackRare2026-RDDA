@@ -1,7 +1,8 @@
 # Rare Disease Diagnostic Assistant
 
 ### Abstract
-A symptom-driven rare disease diagnostic tool powered by a machine learning model trained on Orphanet/HPO data.  
+A Harvard hackathon.
+We developed a symptom-driven rare disease diagnostic tool powered by a machine learning model trained on Orphanet/HPO data.  
 
 **For research use only. Not intended for clinical diagnosis.**
 
